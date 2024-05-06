@@ -73,16 +73,16 @@ with open(dataFile, newline='') as data:
         rows.append({'id': contents.line_num - 1, 'name': row['name'], 'a': row['a'], 'b': row['b'], 'c': row['c']})
 
 # %% Create UI elements
-edit = ui.button('Edit', on_click=openDataFile)
+edit = ui.button('Edit', on_click=openDataFile).props('icon="edit"')
 with edit:
     ui.tooltip('Edit source').props('anchor="center left"').props('self="center right"')
 
-trim = ui.switch('Trim', value=True)
+trim = ui.switch('Trim', value=True).props('checked-icon="content_cut"').props('unchecked-icon="clear"')
 with trim:
     ui.tooltip('Remove padding').props('anchor="center right"').props('self="center left"').props(':offset="[140, 0]"')
 
 if debug:   # Todo: implement
-    archived = ui.switch('Archived', value=False)
+    archived = ui.switch('Archived', value=False).props('checked-icon="update"').props('unchecked-icon="clear"')
     with archived:
         ui.tooltip('Hide archived').props('anchor="center right"').props('self="center left"')
 
@@ -104,8 +104,10 @@ table.add_slot('body', r'''
 table.on('cellClick', lambda cell: writeToClipboard(cell.args['row'][cell.args['col']]))
 
 names = [l['name'] for l in rows]
-filter = ui.input(label='Search', placeholder='Name or reference',
+filter = ui.input(label='', placeholder='Name or reference',
     ).bind_value_to(table, 'filter').props('clearable').props('autofocus').classes('w-full')
+with filter.add_slot('label'):
+    ui.html('<b>F</b>ilter')
 
 # %% Arrange UI elements
 containerBody = ui.element().classes('w-full').classes('h-72')
