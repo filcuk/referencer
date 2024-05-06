@@ -13,7 +13,7 @@ dataFile = 'data_sample.csv' if debug else 'data.csv'
 
 # %% Definitions
 def openDataFile():
-    ui.notify('Opening file...')
+    customNotify('Opening file...')
     webbrowser.open(f'{path}\{dataFile}')
 
 def writeToClipboard(text):
@@ -24,7 +24,7 @@ def writeToClipboard(text):
         output = text
         
     ui.clipboard.write(output)
-    ui.notify(f'Copied \'{output}\'')
+    customNotify(f'Copied \'{output}\'')
 
 def isNumberKey(key):
     try:
