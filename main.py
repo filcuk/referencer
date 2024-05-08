@@ -21,7 +21,7 @@ dataFile = 'data_sample.csv' if debug else 'data.csv'
 # %% Definitions
 def openDataFile():
     customNotify('Opening file...')
-    webbrowser.open(f'{path}\{dataFile}')
+    webbrowser.open(f'{path}\\{dataFile}')
 
 def writeToClipboard(text):
     if trim.value:
@@ -29,16 +29,12 @@ def writeToClipboard(text):
         output = re.sub(r'^(\D*)0*(\d+.*)', r'\1\2', text)
     else:
         output = text
-        
-    ui.clipboard.write(output)
-    customNotify(f'Copied \'{output}\'')
-
-def isNumberKey(key):
-    try:
-        n = int(str(key))   
-        return n > 0 and n < 10
-    except:
-        return False
+    
+    if len(output) == 0:
+        customNotify('Value is blank', group='copy')
+    else:
+        ui.clipboard.write(output)
+        customNotify(f'Copied \'{output}\'', group='copy')
 
 def handleKey(e: KeyEventArguments):
     if e.key == 'Escape' and e.action.keydown:
@@ -46,23 +42,24 @@ def handleKey(e: KeyEventArguments):
             customNotify('Cannot shutdown in debug mode')
         else:
             app.shutdown()
-    elif e.key == 's' and e.modifiers.ctrl and e.action.keydown:
-        filter.run_method('focus')
-    elif e.key == 't' and e.modifiers.ctrl and e.action.keydown:
-        trim.value = not trim.value
-    elif e.key == 'a' and e.modifiers.ctrl and e.action.keydown:
-        archived.value = not archived.value
-    elif e.key == 'e' and e.modifiers.ctrl and e.action.keydown:
-        openDataFile
-    elif isNumberKey(e.key) and e.action.keyup and not e.action.repeat:
+    elif e.modifiers.ctrl and e.action.keydown and focus['filter'] == False:
+        match e.key:
+            case 'f': filter.run_method('focus')
+            case 't': trim.value = not trim.value
+            case 'a': archived.value = not archived.value
+            case 'e': openDataFile
+    elif e.key.number != None and e.action.keyup and not e.action.repeat:
         x = int(str(e.key))
         debug and ui.notify(f'{str(x)}: {table.rows[x-1].get("TBC")}')
 
 def appResize(w: int, h: int):
     app.native.main_window.resize(w, h)
 
-def customNotify(m: str):
-    ui.notify(m, position='top-right', timeout=2000, progress=True, close_button='×')
+def customNotify(m: str, group: str=None):
+    if group == None:
+        ui.notify(m, position='top-right', timeout=2000, progress=True, close_button='×', badgeColor='primary')
+    else:
+        ui.notify(m, position='top-right', timeout=2000, progress=True, close_button='×', group=group, badgeColor='primary')
 
 # %% Setup table
 columns = [
@@ -80,15 +77,31 @@ with open(dataFile, newline='') as data:
         rows.append({'id': contents.line_num - 1, 'name': row['name'], 'a': row['a'], 'b': row['b'], 'c': row['c']})
 
 # %% Create UI elements
-edit = ui.button('Edit', on_click=openDataFile).props('icon="edit"')
+# Have to keep space in default label to maintain icon spacing
+edit = ui.button(' ', on_click=openDataFile).props('icon="edit"')
+edit.add_slot('default', r'''
+    <q-btn-label>
+        <u>E</u>dit
+    </q-btn-label>
+    ''')
 with edit:
     ui.tooltip('Edit source').props('anchor="center left"').props('self="center right"')
 
-trim = ui.switch('Trim', value=True).props('checked-icon="content_cut"').props('unchecked-icon="clear"')
+trim = ui.switch(value=True).props('checked-icon="content_cut"').props('unchecked-icon="clear"')
+trim.add_slot('default', r'''
+    <q-toggle-label>
+        <u>T</u>rim
+    </q-toggle-label>
+    ''')
 with trim:
     ui.tooltip('Remove padding').props('anchor="center right"').props('self="center left"').props(':offset="[140, 0]"')
 
 archived = ui.switch(value=False).props('checked-icon="update"').props('unchecked-icon="clear"')
+archived.add_slot('default', r'''
+    <q-toggle-label>
+        <u>A</u>rchive
+    </q-toggle-label>
+    ''')
 with archived:
     ui.tooltip('Hide archived').props('anchor="center right"').props('self="center left"')
 
@@ -116,6 +129,8 @@ with filter.add_slot('label'):
     ui.html('<b>F</b>ilter')
 
 # %% Arrange UI elements
+containerHeader = ui.element().classes('w-full')
+filter.move(containerHeader)
 containerBody = ui.element().classes('w-full').classes('h-72')
 table.move(containerBody)
 
@@ -127,10 +142,20 @@ edit.move(controlsFooter)
 
 filter.set_autocomplete(names)  # Must set *after* any .move() - ???
 
+# Add focus tracking for keyboard events
+focus = {'filter': False}
+filter.on('focus', lambda e: focus.update({'filter': True}))
+filter.on('focusout', lambda e: focus.update({'filter': False}))
+
 # %% Run native app
+# app.native.window_args['x'] = 
+# app.native.window_args['y'] = 
+# app.native.window_args['screen'] = webview.screens
 app.native.window_args['resizable'] = False
+app.native.window_args['on_top'] = True
 app.native.start_args['debug'] = debug
-app.native.settings['ALLOW_DOWNLOADS'] = True
+# app.native.start_args['server_args'] = {'IsBrowserAcceleratorKeyEnabled': False}
+app.native.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
 
 keyboard = ui.keyboard(on_key=handleKey, ignore=[])
 
@@ -149,5 +174,5 @@ ui.add_head_html('''
 ''')
 ui.on('resize', lambda e: appResize(e.args['width'], e.args['height']))
 
-ui.run(title='Referencer', native=True, window_size=(500, 445), fullscreen=False, frameless=True, reload=debug)
+ui.run(title='Referencer', native=True, window_size=(500, 500), fullscreen=False, frameless=True, reload=debug)
 customNotify('Debug mode' if debug else f'{len(rows)} loaded')
