@@ -4,8 +4,15 @@ import csv
 import inspect, os.path
 import re
 import webbrowser
+import argparse
+import strictyaml
 
-debug = True
+parser = argparse.ArgumentParser()
+parser.add_argument('-d', '--debug', type=bool)
+
+args = parser.parse_args()
+
+debug = False if args.debug is None else args.debug
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path     = os.path.dirname(os.path.abspath(filename))
@@ -49,7 +56,7 @@ def handleKey(e: KeyEventArguments):
         openDataFile
     elif isNumberKey(e.key) and e.action.keyup and not e.action.repeat:
         x = int(str(e.key))
-        # if debug: ui.notify(f'{str(x)}: {table.rows[x-1].get("TBC")}')
+        debug and ui.notify(f'{str(x)}: {table.rows[x-1].get("TBC")}')
 
 def appResize(w: int, h: int):
     app.native.main_window.resize(w, h)
@@ -81,10 +88,9 @@ trim = ui.switch('Trim', value=True).props('checked-icon="content_cut"').props('
 with trim:
     ui.tooltip('Remove padding').props('anchor="center right"').props('self="center left"').props(':offset="[140, 0]"')
 
-if debug:   # Todo: implement
-    archived = ui.switch('Archived', value=False).props('checked-icon="update"').props('unchecked-icon="clear"')
-    with archived:
-        ui.tooltip('Hide archived').props('anchor="center right"').props('self="center left"')
+archived = ui.switch(value=False).props('checked-icon="update"').props('unchecked-icon="clear"')
+with archived:
+    ui.tooltip('Hide archived').props('anchor="center right"').props('self="center left"')
 
 # QTable doesn't support cell events natively, requires custom on-click event
 table = ui.table(columns=columns, rows=rows, row_key='id', pagination=9
