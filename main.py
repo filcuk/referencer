@@ -30,11 +30,11 @@ def writeToClipboard(text):
     else:
         output = text
     
-    if len(output) == 0:
-        customNotify('Value is blank', group='copy')
+    if len(output) == 0 or output == 'NA':
+        customNotify('Nothing to copy', group='copy')
     else:
         ui.clipboard.write(output)
-        customNotify(f'Copied \'{output}\'', group='copy')
+        customNotify(f'Copied: {output}', group='copy')
 
 def handleKey(e: KeyEventArguments):
     if e.key == 'Escape' and e.action.keydown:
@@ -55,11 +55,16 @@ def handleKey(e: KeyEventArguments):
 def appResize(w: int, h: int):
     app.native.main_window.resize(w, h)
 
-def customNotify(m: str, group: str=None):
+def customNotify(msg: str, group: str=None):
     if group == None:
-        ui.notify(m, position='top-right', timeout=2000, progress=True, close_button='×', badgeColor='primary')
+        ui.notify(msg, position='top-right', timeout=2000, progress=True, close_button='×', badgeColor='primary')
     else:
-        ui.notify(m, position='top-right', timeout=2000, progress=True, close_button='×', group=group, badgeColor='primary')
+        ui.notify(msg, position='top-right', timeout=2000, progress=True, close_button='×', group=group, badgeColor='primary')
+
+def columnToggle(column: dict, visible: bool) -> None:
+    column['classes'] = '' if visible else 'hidden'
+    column['headerClasses'] = '' if visible else 'hidden'
+    table.update()
 
 # %% Setup table
 columns = [
@@ -77,37 +82,24 @@ with open(dataFile, newline='') as data:
         rows.append({'id': contents.line_num - 1, 'name': row['name'], 'a': row['a'], 'b': row['b'], 'c': row['c']})
 
 # %% Create UI elements
-# Have to keep space in default label to maintain icon spacing
-edit = ui.button(' ', on_click=openDataFile).props('icon="edit"')
-edit.add_slot('default', r'''
-    <q-btn-label>
-        <u>E</u>dit
-    </q-btn-label>
-    ''')
+edit = ui.button(on_click=openDataFile)
 with edit:
-    ui.tooltip('Edit source').props('anchor="center left"').props('self="center right"')
+    ui.tooltip('Edit source').props('anchor="top middle" self="bottom middle"')
+    ui.icon('edit')
 
-trim = ui.switch(value=True).props('checked-icon="content_cut"').props('unchecked-icon="clear"')
-trim.add_slot('default', r'''
-    <q-toggle-label>
-        <u>T</u>rim
-    </q-toggle-label>
-    ''')
+trim = ui.switch(value=True).props('checked-icon="content_cut" unchecked-icon="clear"')
 with trim:
-    ui.tooltip('Remove padding').props('anchor="center right"').props('self="center left"').props(':offset="[140, 0]"')
+    ui.tooltip('Remove padding').props('anchor="top middle" self="bottom middle"')
+    ui.html('<u>T</u>rim')
 
-archived = ui.switch(value=False).props('checked-icon="update"').props('unchecked-icon="clear"')
-archived.add_slot('default', r'''
-    <q-toggle-label>
-        <u>A</u>rchive
-    </q-toggle-label>
-    ''')
+archived = ui.switch(value=False).props('checked-icon="update" unchecked-icon="clear"')
 with archived:
-    ui.tooltip('Hide archived').props('anchor="center right"').props('self="center left"')
+    ui.tooltip('Hide archived').props('anchor="top middle" self="bottom middle"')
+    ui.html('<u>A</u>rchived')
 
 # QTable doesn't support cell events natively, requires custom on-click event
 table = ui.table(columns=columns, rows=rows, row_key='id', pagination=9
-    ).props('dense').props('hide-pagination').classes('w-full')
+    ).props('dense hide-pagination').classes('w-full')
 table.add_slot('body', r'''
     <q-tr :props="props">
         <q-td
@@ -116,22 +108,27 @@ table.add_slot('body', r'''
             :props="props"
             @click="$parent.$emit('cellClick', {row: props.row, col: col.name})"
         >
-            {{ col.value }}
+            {{ col.value }}  
         </q-td>
     </q-tr>
 ''')
 table.on('cellClick', lambda cell: writeToClipboard(cell.args['row'][cell.args['col']]))
 
-names = [l['name'] for l in rows]
+columnMenu = ui.button(icon='visibility')
+with columnMenu:
+    with ui.menu().props('anchor="bottom right" self="top right"'), ui.column().classes('gap-0 p-2'):
+        for column in columns:
+            ui.switch(column['label'], value=True, on_change=lambda e, column=column: columnToggle(column, e.value))
+
 filter = ui.input(label='', placeholder='Name or reference',
-    ).bind_value_to(table, 'filter').props('clearable').props('autofocus').classes('w-full')
+    ).bind_value_to(table, 'filter').props('clearable autofocus').classes('w-full')
 with filter.add_slot('label'):
     ui.html('<b>F</b>ilter')
 
 # %% Arrange UI elements
-containerHeader = ui.element().classes('w-full')
+containerHeader = ui.row().classes('w-full')
 filter.move(containerHeader)
-containerBody = ui.element().classes('w-full').classes('h-72')
+containerBody = ui.element().classes('w-full h-72')
 table.move(containerBody)
 
 controlsFooter = ui.row().classes('w-full')
@@ -139,8 +136,9 @@ trim.move(controlsFooter)
 archived.move(controlsFooter)
 ui.space().move(controlsFooter)
 edit.move(controlsFooter)
+columnMenu.move(controlsFooter)
 
-filter.set_autocomplete(names)  # Must set *after* any .move() - ???
+filter.set_autocomplete([e['name'] for e in rows])  # Must set *after* any .move() - ???
 
 # Add focus tracking for keyboard events
 focus = {'filter': False}
