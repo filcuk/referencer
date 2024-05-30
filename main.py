@@ -67,19 +67,13 @@ def columnToggle(column: dict, visible: bool) -> None:
     table.update()
 
 # %% Setup table
-columns = [
-    {'name': 'id', 'label': '#', 'field': 'id', 'sortable': True, 'align': 'left'},
-    {'name': 'name', 'label': 'Name', 'field': 'name', 'required': True, 'sortable': True, 'align': 'left'},
-    {'name': 'a', 'label': 'A', 'field': 'a', 'sortable': True, 'align': 'left'},
-    {'name': 'b', 'label': 'B', 'field': 'b', 'sortable': True, 'align': 'left'},
-    {'name': 'c', 'label': 'C', 'field': 'c', 'sortable': True, 'align': 'left'}
-]
-
-rows = []
-with open(dataFile, newline='') as data:
-    contents = csv.DictReader(data)
-    for row in contents:
-        rows.append({'id': contents.line_num - 1, 'name': row['name'], 'a': row['a'], 'b': row['b'], 'c': row['c']})
+# Process csv file to a list of dictionaries
+with open(dataFile, newline='') as f:
+    rows = [{k: int(v) if v.isnumeric() else v for k, v in row.items()}
+        for row in csv.DictReader(f, skipinitialspace=True)]
+    
+# Use first list item to generate columns
+columns = [{'name': k, 'label': k, 'field': k, 'sortable': True, 'align': 'left'} for k in rows[0]]
 
 # %% Create UI elements
 edit = ui.button(on_click=openDataFile)
@@ -98,7 +92,7 @@ with archived:
     ui.html('<u>A</u>rchived')
 
 # QTable doesn't support cell events natively, requires custom on-click event
-table = ui.table(columns=columns, rows=rows, row_key='id', pagination=9
+table = ui.table(columns=columns, rows=rows, pagination=9
     ).props('dense hide-pagination').classes('w-full')
 table.add_slot('body', r'''
     <q-tr :props="props">
@@ -116,6 +110,7 @@ table.on('cellClick', lambda cell: writeToClipboard(cell.args['row'][cell.args['
 
 columnMenu = ui.button(icon='visibility')
 with columnMenu:
+    ui.tooltip('Show/hide fields').props('anchor="top middle" self="bottom middle"')
     with ui.menu().props('anchor="bottom right" self="top right"'), ui.column().classes('gap-0 p-2'):
         for column in columns:
             ui.switch(column['label'], value=True, on_change=lambda e, column=column: columnToggle(column, e.value))
