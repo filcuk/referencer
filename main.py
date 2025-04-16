@@ -6,6 +6,7 @@ import re
 import webbrowser
 import argparse
 import strictyaml
+import os, sys, time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--debug', type=bool)
@@ -66,14 +67,25 @@ def columnToggle(column: dict, visible: bool) -> None:
     column['headerClasses'] = '' if visible else 'hidden'
     table.update()
 
-# %% Setup table
-# Process csv file to a list of dictionaries
-with open(dataFile, newline='') as f:
-    rows = [{k: int(v) if v.isnumeric() else v for k, v in row.items()}
-        for row in csv.DictReader(f, skipinitialspace=True)]
+def genTable():
+    global rows
+    global columns
     
-# Use first list item to generate columns
-columns = [{'name': k, 'label': k, 'field': k, 'sortable': True, 'align': 'left'} for k in rows[0]]
+    # Process csv file to a list of dictionaries
+    with open(dataFile, newline='') as f:
+        rows = [{k: int(v) if v.isnumeric() else v for k, v in row.items()}
+            for row in csv.DictReader(f, skipinitialspace=True)]
+        
+    # Use first list item to generate columns
+    columns = [{'name': k, 'label': k, 'field': k, 'sortable': True, 'align': 'left'} for k in rows[0]]
+
+def updateTable(table):
+    genTable()
+    table.update()
+    customNotify('Source reloaded')
+
+# %% Setup table
+genTable()
 
 # %% Create UI elements
 edit = ui.button(on_click=openDataFile)
@@ -115,6 +127,11 @@ with columnMenu:
         for column in columns:
             ui.switch(column['label'], value=True, on_change=lambda e, column=column: columnToggle(column, e.value))
 
+# reload = ui.button(on_click=updateTable(table))
+# with reload:
+#     ui.tooltip('Reload source').props('anchor="top middle" self="bottom middle"')
+#     ui.icon('refresh')
+
 filter = ui.input(label='', placeholder='Name or reference',
     ).bind_value_to(table, 'filter').props('clearable autofocus').classes('w-full')
 with filter.add_slot('label'):
@@ -130,6 +147,7 @@ controlsFooter = ui.row().classes('w-full')
 trim.move(controlsFooter)
 archived.move(controlsFooter)
 ui.space().move(controlsFooter)
+# reload.move(controlsFooter)
 edit.move(controlsFooter)
 columnMenu.move(controlsFooter)
 
